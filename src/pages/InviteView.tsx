@@ -84,7 +84,7 @@ function InviteView() {
             id: userId,
             nickname: userNickname,
             plan: 'free',
-          });
+          } as any);
       }
 
       await sessionService.joinSession(code, userId);
