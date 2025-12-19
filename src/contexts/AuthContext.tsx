@@ -72,6 +72,13 @@ function AuthProvider({ children }: Props) {
     // 현재 세션 가져오기
     const initializeAuth = async () => {
       try {
+        // OAuth 콜백 처리를 위해 약간의 지연 추가
+        // URL에 hash fragment가 있으면 Supabase가 처리할 시간을 줌
+        if (window.location.hash && window.location.hash.includes('access_token')) {
+          console.log('OAuth 콜백 감지, 세션 처리 중...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -83,6 +90,12 @@ function AuthProvider({ children }: Props) {
         }
 
         const currentSession = data?.session || null;
+
+        if (currentSession) {
+          console.log('세션 로드 성공:', currentSession.user.email);
+        } else {
+          console.log('세션 없음');
+        }
 
         // 프로필 생성은 백그라운드에서 처리 (초기화 블로킹 방지)
         if (currentSession?.user) {
@@ -108,7 +121,9 @@ function AuthProvider({ children }: Props) {
     // Auth 상태 변경 구독
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      console.log('Auth 상태 변경:', event, currentSession?.user?.email || '세션 없음');
+      
       try {
         // 프로필 생성은 백그라운드에서 처리 (UI 블로킹 방지)
         if (currentSession?.user) {
@@ -161,10 +176,13 @@ function AuthProvider({ children }: Props) {
   };
 
   const signInWithGoogle = async (): Promise<void> => {
+    const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    console.log('Google 로그인 리다이렉트 URL:', redirectUrl);
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${redirectUrl}/`,
       },
     });
 
@@ -174,10 +192,13 @@ function AuthProvider({ children }: Props) {
   };
 
   const signInWithKakao = async (): Promise<void> => {
+    const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    console.log('Kakao 로그인 리다이렉트 URL:', redirectUrl);
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'kakao',
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${redirectUrl}/`,
       },
     });
 
