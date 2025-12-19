@@ -61,32 +61,39 @@ ALTER TABLE locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE routes ENABLE ROW LEVEL SECURITY;
 
 -- Users RLS 정책
+DROP POLICY IF EXISTS "Users can view their own profile" ON users;
 CREATE POLICY "Users can view their own profile"
   ON users FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can update their own profile" ON users;
 CREATE POLICY "Users can update their own profile"
   ON users FOR UPDATE
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON users;
 CREATE POLICY "Users can insert their own profile"
   ON users FOR INSERT
   WITH CHECK (auth.uid() = id);
 
 -- Sessions RLS 정책
+DROP POLICY IF EXISTS "Anyone can view active sessions" ON sessions;
 CREATE POLICY "Anyone can view active sessions"
   ON sessions FOR SELECT
   USING (is_active = true);
 
+DROP POLICY IF EXISTS "Host can create sessions" ON sessions;
 CREATE POLICY "Host can create sessions"
   ON sessions FOR INSERT
   WITH CHECK (auth.uid() = host_id);
 
+DROP POLICY IF EXISTS "Host can update their sessions" ON sessions;
 CREATE POLICY "Host can update their sessions"
   ON sessions FOR UPDATE
   USING (auth.uid() = host_id);
 
 -- Session Members RLS 정책
+DROP POLICY IF EXISTS "Members can view session members" ON session_members;
 CREATE POLICY "Members can view session members"
   ON session_members FOR SELECT
   USING (
@@ -97,15 +104,18 @@ CREATE POLICY "Members can view session members"
     )
   );
 
+DROP POLICY IF EXISTS "Users can join sessions" ON session_members;
 CREATE POLICY "Users can join sessions"
   ON session_members FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can leave sessions" ON session_members;
 CREATE POLICY "Users can leave sessions"
   ON session_members FOR DELETE
   USING (auth.uid() = user_id);
 
 -- Locations RLS 정책
+DROP POLICY IF EXISTS "Members can view locations in their session" ON locations;
 CREATE POLICY "Members can view locations in their session"
   ON locations FOR SELECT
   USING (
@@ -116,6 +126,7 @@ CREATE POLICY "Members can view locations in their session"
     )
   );
 
+DROP POLICY IF EXISTS "Members can update their location" ON locations;
 CREATE POLICY "Members can update their location"
   ON locations FOR INSERT
   WITH CHECK (
@@ -127,6 +138,7 @@ CREATE POLICY "Members can update their location"
     )
   );
 
+DROP POLICY IF EXISTS "Members can update their location via UPDATE" ON locations;
 CREATE POLICY "Members can update their location via UPDATE"
   ON locations FOR UPDATE
   USING (
@@ -139,6 +151,7 @@ CREATE POLICY "Members can update their location via UPDATE"
   );
 
 -- Routes RLS 정책
+DROP POLICY IF EXISTS "Members can view routes in their session" ON routes;
 CREATE POLICY "Members can view routes in their session"
   ON routes FOR SELECT
   USING (
@@ -149,6 +162,7 @@ CREATE POLICY "Members can view routes in their session"
     )
   );
 
+DROP POLICY IF EXISTS "Host can create routes" ON routes;
 CREATE POLICY "Host can create routes"
   ON routes FOR INSERT
   WITH CHECK (
@@ -187,6 +201,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 트리거 생성
+DROP TRIGGER IF EXISTS enforce_session_member_limit ON session_members;
 CREATE TRIGGER enforce_session_member_limit
   BEFORE INSERT ON session_members
   FOR EACH ROW

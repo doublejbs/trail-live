@@ -28,14 +28,19 @@ class SessionService {
     try {
       console.log('Creating session with hostId:', hostId, 'nickname:', hostNickname);
       
+      // 현재 인증 상태 확인
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      console.log('Current auth session:', authSession ? 'Authenticated ✓' : '❌ Not authenticated');
+      console.log('Session user ID:', authSession?.user?.id);
+      
       // hostId로 users 테이블에 사용자가 있는지 확인
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
         .select('id, nickname')
         .eq('id', hostId)
         .maybeSingle();
 
-      console.log('User check result:', { existingUser });
+      console.log('User check result:', { existingUser, userCheckError });
 
       if (!existingUser) {
         console.log('User not found in public.users table, creating...');
