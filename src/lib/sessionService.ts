@@ -130,7 +130,7 @@ class SessionService {
 
       // 5. 공유 URL 생성
       const baseUrl = window.location.origin;
-      const shareUrl = `${baseUrl}/?code=${inviteCode}`;
+      const shareUrl = `${baseUrl}/invite/${inviteCode}`;
 
       return {
         sessionId: (session as any).id,
@@ -252,6 +252,52 @@ class SessionService {
     }
   }
 
+  public async getSessionByInviteCode(inviteCode: string): Promise<{
+    id: string;
+    name: string;
+    hostNickname: string;
+    memberCount: number;
+    isActive: boolean;
+  } | null> {
+    try {
+      // 세션 정보 조회
+      const { data: session, error: sessionError } = await supabase
+        .from('sessions')
+        .select(`
+          id,
+          name,
+          is_active,
+          host_id,
+          users!sessions_host_id_fkey (
+            nickname
+          )
+        `)
+        .eq('invite_code', inviteCode)
+        .single();
+
+      if (sessionError || !session) {
+        return null;
+      }
+
+      // 참가자 수 조회
+      const { count } = await supabase
+        .from('session_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('session_id', (session as any).id);
+
+      return {
+        id: (session as any).id,
+        name: (session as any).name,
+        hostNickname: (session as any).users?.nickname || '호스트',
+        memberCount: count || 0,
+        isActive: (session as any).is_active,
+      };
+    } catch (error) {
+      console.error('세션 조회 중 오류:', error);
+      return null;
+    }
+  }
+
   public async getSessionRoute(sessionId: string): Promise<any | null> {
     try {
       const { data: routes, error } = await supabase
@@ -274,6 +320,73 @@ class SessionService {
     } catch (error) {
       console.error('경로 조회 중 오류:', error);
       return null;
+    }
+  }
+
+  public async getPublicSessions(currentUserId: string): Promise<any[]> {
+    try {
+      // 활성화된 모든 세션 조회 (내가 호스트가 아니고, 아직 참가하지 않은 세션)
+      const { data: sessions, error } = await supabase
+        .from('sessions')
+        .select(`
+          id,
+          name,
+          invite_code,
+          created_at,
+          is_active,
+          host_id,
+          users!sessions_host_id_fkey (
+            nickname
+          )
+        `)
+        .eq('is_active', true)
+        .neq('host_id', currentUserId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Error fetching public sessions:', error);
+        return [];
+      }
+
+      if (!sessions || sessions.length === 0) {
+        return [];
+      }
+
+      // 내가 이미 참가한 세션 ID 목록 조회
+      const { data: myMemberships } = await supabase
+        .from('session_members')
+        .select('session_id')
+        .eq('user_id', currentUserId);
+
+      const mySessionIds = new Set(myMemberships?.map((m: any) => m.session_id) || []);
+
+      // 각 세션의 참가자 수 조회
+      const sessionsWithCount = await Promise.all(
+        sessions
+          .filter((session: any) => !mySessionIds.has(session.id))
+          .map(async (session: any) => {
+            const { count } = await supabase
+              .from('session_members')
+              .select('id', { count: 'exact', head: true })
+              .eq('session_id', session.id);
+
+            return {
+              id: session.id,
+              name: session.name,
+              invite_code: session.invite_code,
+              created_at: session.created_at,
+              is_active: session.is_active,
+              host_nickname: session.users?.nickname || '호스트',
+              member_count: count || 0,
+            };
+          })
+      );
+
+      return sessionsWithCount;
+    } catch (error) {
+      console.error('Error in getPublicSessions:', error);
+      return [];
     }
   }
 }

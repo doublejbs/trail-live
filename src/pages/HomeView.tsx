@@ -1,21 +1,36 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import NaverMapView from '@/components/NaverMapView';
-import MySessionsModalView from '@/components/MySessionsModalView';
 import useGeolocation from '@/hooks/useGeolocation';
 import useRealtimeLocations from '@/hooks/useRealtimeLocations';
 import SessionService from '@/lib/sessionService';
 import type { RouteData } from '@/types/map';
 
+interface LocationState {
+  joinedSessionId?: string;
+  sessionName?: string;
+}
+
 function HomeView() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, signOut } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
-  const [isMySessionsModalOpen, setIsMySessionsModalOpen] = useState(false);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const userId = user?.id || null;
+
+  // 초대 링크를 통한 참가 처리
+  useEffect(() => {
+    const state = location.state as LocationState;
+    if (state?.joinedSessionId && state?.sessionName) {
+      setSessionId(state.joinedSessionId);
+      setCurrentSessionName(state.sessionName);
+      // state 정리 (새로고침 시 중복 처리 방지)
+      navigate('/', { replace: true, state: {} });
+    }
+  }, [location.state, navigate]);
 
   const { location: myLocation, error: geoError, loading: geoLoading } = useGeolocation();
   const { locations, updateLocation } = useRealtimeLocations({ sessionId, userId });
@@ -48,13 +63,6 @@ function HomeView() {
     } catch (error) {
       console.error('로그아웃 실패:', error);
     }
-  };
-
-  const handleJoinSession = (joinedSessionId: string, sessionName: string) => {
-    console.log('모임 진입:', { joinedSessionId, sessionName });
-    setSessionId(joinedSessionId);
-    setCurrentSessionName(sessionName);
-    setIsMySessionsModalOpen(false);
   };
 
   return (
@@ -132,25 +140,15 @@ function HomeView() {
               모임 만들기
             </button>
             <button 
-              onClick={() => setIsMySessionsModalOpen(true)}
+              onClick={() => navigate('/join-session')}
               disabled={!userId}
               className="flex-1 border border-black text-black py-3 px-4 font-semibold hover:bg-gray-100 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition"
             >
-              내 모임
+              모임 참가하기
             </button>
           </div>
         )}
       </div>
-
-      {/* 내 모임 모달 */}
-      {userId && (
-        <MySessionsModalView
-          isOpen={isMySessionsModalOpen}
-          onClose={() => setIsMySessionsModalOpen(false)}
-          userId={userId}
-          onJoinSession={handleJoinSession}
-        />
-      )}
     </div>
   );
 }

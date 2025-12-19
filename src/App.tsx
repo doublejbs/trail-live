@@ -5,6 +5,8 @@ import LoginView from './pages/LoginView';
 import SignupView from './pages/SignupView';
 import HomeView from './pages/HomeView';
 import CreateSessionView from './pages/CreateSessionView';
+import JoinSessionView from './pages/JoinSessionView';
+import InviteView from './pages/InviteView';
 
 function App() {
   return (
@@ -29,6 +31,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/join-session"
+            element={
+              <ProtectedRoute>
+                <JoinSessionView />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/invite/:code" element={<InviteView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>

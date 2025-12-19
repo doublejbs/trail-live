@@ -13,7 +13,14 @@ function LoginView() {
 
   useEffect(() => {
     if (user) {
-      navigate('/', { replace: true });
+      // 로그인 후 redirect할 URL이 있으면 해당 URL로 이동
+      const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+      if (redirectUrl) {
+        sessionStorage.removeItem('redirectAfterLogin');
+        navigate(redirectUrl, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     }
   }, [user, navigate]);
 

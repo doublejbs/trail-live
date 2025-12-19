@@ -176,7 +176,8 @@ function AuthProvider({ children }: Props) {
   };
 
   const signInWithGoogle = async (): Promise<void> => {
-    const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    // 항상 현재 origin 사용 (로컬/프로덕션 자동 구분)
+    const redirectUrl = window.location.origin;
     console.log('Google 로그인 리다이렉트 URL:', redirectUrl);
     
     const { error } = await supabase.auth.signInWithOAuth({
@@ -192,7 +193,8 @@ function AuthProvider({ children }: Props) {
   };
 
   const signInWithKakao = async (): Promise<void> => {
-    const redirectUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    // 항상 현재 origin 사용 (로컬/프로덕션 자동 구분)
+    const redirectUrl = window.location.origin;
     console.log('Kakao 로그인 리다이렉트 URL:', redirectUrl);
     
     const { error } = await supabase.auth.signInWithOAuth({

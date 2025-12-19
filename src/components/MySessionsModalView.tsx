@@ -57,7 +57,7 @@ function MySessionsModalView({ isOpen, onClose, userId, onJoinSession }: Props) 
   };
 
   const handleCopyInviteCode = (inviteCode: string) => {
-    const shareUrl = `${window.location.origin}/?code=${inviteCode}`;
+    const shareUrl = `${window.location.origin}/invite/${inviteCode}`;
     navigator.clipboard.writeText(shareUrl);
     alert('초대 링크가 복사되었습니다!');
   };
