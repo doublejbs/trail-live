@@ -1,12 +1,20 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import NaverMapView from '@/components/NaverMapView';
+import MySessionsModalView from '@/components/MySessionsModalView';
 import useGeolocation from '@/hooks/useGeolocation';
 import useRealtimeLocations from '@/hooks/useRealtimeLocations';
+import SessionService from '@/lib/sessionService';
+import type { RouteData } from '@/types/map';
 
 function HomeView() {
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const [sessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
+  const [isMySessionsModalOpen, setIsMySessionsModalOpen] = useState(false);
+  const [routeData, setRouteData] = useState<RouteData | null>(null);
   const userId = user?.id || null;
 
   const { location: myLocation, error: geoError, loading: geoLoading } = useGeolocation();
@@ -16,7 +24,23 @@ function HomeView() {
     if (myLocation && sessionId && userId) {
       updateLocation(myLocation.lat, myLocation.lon);
     }
-  }, [myLocation, sessionId, userId]);
+  }, [myLocation, sessionId, userId, updateLocation]);
+
+  // 세션 경로 불러오기
+  useEffect(() => {
+    const loadSessionRoute = async () => {
+      if (!sessionId) {
+        setRouteData(null);
+        return;
+      }
+
+      const sessionService = new SessionService();
+      const route = await sessionService.getSessionRoute(sessionId);
+      setRouteData(route);
+    };
+
+    loadSessionRoute();
+  }, [sessionId]);
 
   const handleSignOut = async () => {
     try {
@@ -24,6 +48,13 @@ function HomeView() {
     } catch (error) {
       console.error('로그아웃 실패:', error);
     }
+  };
+
+  const handleJoinSession = (joinedSessionId: string, sessionName: string) => {
+    console.log('모임 진입:', { joinedSessionId, sessionName });
+    setSessionId(joinedSessionId);
+    setCurrentSessionName(sessionName);
+    setIsMySessionsModalOpen(false);
   };
 
   return (
@@ -46,18 +77,15 @@ function HomeView() {
 
       {/* 상태 표시 */}
       <div className="bg-white p-3 border-b border-black">
-        {geoLoading && <div className="text-sm text-gray-700">📍 위치 정보를 가져오는 중...</div>}
-        {geoError && <div className="text-sm text-red-600">⚠️ {geoError}</div>}
-        {myLocation && (
-          <div className="text-sm text-gray-900">
-            ✅ 내 위치: {myLocation.lat.toFixed(6)}, {myLocation.lon.toFixed(6)}
-          </div>
-        )}
-        {!sessionId && (
-          <div className="text-sm text-gray-700 mt-1">
-            ℹ️ 세션에 참가하려면 로그인 후 초대 코드를 입력하세요.
-          </div>
-        )}
+        <div className="space-y-1">
+          {geoLoading && <div className="text-sm text-gray-700">📍 위치 정보를 가져오는 중...</div>}
+          {geoError && <div className="text-sm text-red-600">⚠️ {geoError}</div>}
+          {myLocation && (
+            <div className="text-sm text-gray-900">
+              ✅ 내 위치: {myLocation.lat.toFixed(6)}, {myLocation.lon.toFixed(6)}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 지도 영역 */}
@@ -65,28 +93,64 @@ function HomeView() {
         <NaverMapView
           center={myLocation}
           userLocations={locations}
-          route={null}
+          route={routeData}
           currentUserId={userId}
         />
       </div>
 
       {/* 하단 컨트롤 */}
       <div className="bg-white p-4 border-t border-black">
-        <div className="flex gap-2">
-          <button className="flex-1 bg-black text-white py-3 px-4 font-semibold hover:bg-gray-800 transition">
-            세션 만들기
-          </button>
-          <button className="flex-1 border border-black text-black py-3 px-4 font-semibold hover:bg-gray-100 transition">
-            세션 참가
-          </button>
-        </div>
-        {sessionId && (
-          <div className="mt-3 text-center">
-            <span className="text-sm text-gray-700">참가자: </span>
-            <span className="text-sm font-semibold">{locations.length}명</span>
+        {sessionId ? (
+          // 모임에 참가한 상태
+          <div>
+            <div className="mb-3 p-3 border border-black bg-gray-50">
+              <div className="text-sm text-gray-600 mb-1">현재 모임</div>
+              <div className="font-bold text-black">{currentSessionName || '모임'}</div>
+              <div className="text-xs text-gray-600 mt-1">
+                참가자: {locations.length}명
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setSessionId(null);
+                setCurrentSessionName(null);
+                setRouteData(null);
+              }}
+              className="w-full border border-black text-black py-3 px-4 font-semibold hover:bg-gray-100 transition"
+            >
+              모임 나가기
+            </button>
+          </div>
+        ) : (
+          // 모임에 참가하지 않은 상태
+          <div className="flex gap-2">
+            <button 
+              onClick={() => navigate('/create-session')}
+              disabled={!userId}
+              className="flex-1 bg-black text-white py-3 px-4 font-semibold hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+            >
+              모임 만들기
+            </button>
+            <button 
+              onClick={() => setIsMySessionsModalOpen(true)}
+              disabled={!userId}
+              className="flex-1 border border-black text-black py-3 px-4 font-semibold hover:bg-gray-100 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition"
+            >
+              내 모임
+            </button>
           </div>
         )}
       </div>
+
+      {/* 내 모임 모달 */}
+      {userId && (
+        <MySessionsModalView
+          isOpen={isMySessionsModalOpen}
+          onClose={() => setIsMySessionsModalOpen(false)}
+          userId={userId}
+          onJoinSession={handleJoinSession}
+        />
+      )}
     </div>
   );
 }

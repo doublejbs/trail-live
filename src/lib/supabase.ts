@@ -15,6 +15,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storage: window.localStorage,
     storageKey: 'trail-live-auth',
     detectSessionInUrl: true,
+    flowType: 'pkce',
   },
   realtime: {
     params: {

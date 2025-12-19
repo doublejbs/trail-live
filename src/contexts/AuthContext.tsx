@@ -28,11 +28,26 @@ function AuthProvider({ children }: Props) {
     // 사용자 프로필 생성 (이메일 확인 또는 소셜 로그인 후)
     const createUserProfileIfNeeded = async (user: User) => {
       try {
-        const { data: existingUser } = await supabase
+        // 타임아웃 설정 (3초)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('프로필 조회 타임아웃')), 3000);
+        });
+
+        const queryPromise = supabase
           .from('users')
           .select('id')
           .eq('id', user.id)
           .single();
+
+        const result = await Promise.race([queryPromise, timeoutPromise]).catch(() => {
+          return { data: null, error: new Error('타임아웃') };
+        });
+
+        const { data: existingUser, error: selectError } = result;
+
+        if (selectError) {
+          return;
+        }
 
         if (!existingUser) {
           const nickname =
@@ -42,10 +57,11 @@ function AuthProvider({ children }: Props) {
             user.email?.split('@')[0] ||
             '사용자';
 
+          // @ts-expect-error - Database 타입 추론 이슈로 인한 임시 처리
           await supabase.from('users').insert({
             id: user.id,
-            nickname,
-            plan: 'free',
+            nickname: nickname as string,
+            plan: 'free' as const,
           });
         }
       } catch (error) {
@@ -56,13 +72,26 @@ function AuthProvider({ children }: Props) {
     // 현재 세션 가져오기
     const initializeAuth = async () => {
       try {
-        const sessionResponse = await supabase.auth.getSession();
-        const currentSession = sessionResponse?.data?.session || null;
-
-        if (currentSession?.user) {
-          await createUserProfileIfNeeded(currentSession.user);
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('세션 가져오기 오류:', error);
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          return;
         }
 
+        const currentSession = data?.session || null;
+
+        // 프로필 생성은 백그라운드에서 처리 (초기화 블로킹 방지)
+        if (currentSession?.user) {
+          createUserProfileIfNeeded(currentSession.user).catch(() => {
+            // 백그라운드 처리 실패는 무시
+          });
+        }
+
+        // 즉시 세션 설정
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
       } catch (error) {
@@ -81,10 +110,14 @@ function AuthProvider({ children }: Props) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
       try {
+        // 프로필 생성은 백그라운드에서 처리 (UI 블로킹 방지)
         if (currentSession?.user) {
-          await createUserProfileIfNeeded(currentSession.user);
+          createUserProfileIfNeeded(currentSession.user).catch(() => {
+            // 백그라운드 처리 실패는 무시
+          });
         }
 
+        // 즉시 상태 업데이트
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
       } catch (error) {
@@ -159,6 +192,10 @@ function AuthProvider({ children }: Props) {
     if (error) {
       throw error;
     }
+
+    // 로그아웃 성공 시 로컬 상태 클리어
+    setSession(null);
+    setUser(null);
   };
 
   const value = {

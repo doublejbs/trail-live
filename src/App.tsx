@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LoginView from './pages/LoginView';
 import SignupView from './pages/SignupView';
 import HomeView from './pages/HomeView';
+import CreateSessionView from './pages/CreateSessionView';
 
 function App() {
   return (
@@ -17,6 +18,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <HomeView />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/create-session"
+            element={
+              <ProtectedRoute>
+                <CreateSessionView />
               </ProtectedRoute>
             }
           />

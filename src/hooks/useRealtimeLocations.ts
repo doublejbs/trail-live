@@ -41,6 +41,7 @@ function useRealtimeLocations({
         .eq('session_id', sessionId);
 
       if (initialLocations) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const formattedLocations: UserLocation[] = initialLocations.map((loc: any) => ({
           userId: loc.user_id,
           nickname: loc.users?.nickname || '알 수 없음',
@@ -64,7 +65,12 @@ function useRealtimeLocations({
           },
           async (payload) => {
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-              const newLocation = payload.new as any;
+              const newLocation = payload.new as {
+                user_id: string;
+                lat: number;
+                lon: number;
+                updated_at: string;
+              };
 
               // 사용자 닉네임 조회
               const { data: userData } = await supabase
@@ -75,7 +81,8 @@ function useRealtimeLocations({
 
               const userLocation: UserLocation = {
                 userId: newLocation.user_id,
-                nickname: userData?.nickname || '알 수 없음',
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                nickname: (userData as any)?.nickname || '알 수 없음',
                 lat: newLocation.lat,
                 lon: newLocation.lon,
                 updatedAt: newLocation.updated_at,
@@ -92,7 +99,7 @@ function useRealtimeLocations({
                 }
               });
             } else if (payload.eventType === 'DELETE') {
-              const deletedLocation = payload.old as any;
+              const deletedLocation = payload.old as { user_id: string };
               setLocations((prev) => prev.filter((loc) => loc.userId !== deletedLocation.user_id));
             }
           }
@@ -112,13 +119,19 @@ function useRealtimeLocations({
   const updateLocation = async (lat: number, lon: number): Promise<void> => {
     if (!sessionId || !userId) return;
 
-    const { error } = await supabase.from('locations').upsert({
-      session_id: sessionId,
-      user_id: userId,
-      lat,
-      lon,
-      updated_at: new Date().toISOString(),
-    });
+    // @ts-expect-error - Supabase types don't match the actual API
+    const { error } = await supabase.from('locations').upsert(
+      {
+        session_id: sessionId,
+        user_id: userId,
+        lat,
+        lon,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'session_id,user_id',
+      }
+    );
 
     if (error) {
       console.error('위치 업데이트 실패:', error);
