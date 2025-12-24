@@ -6,9 +6,10 @@ interface Props {
   userLocations: UserLocation[];
   route: RouteData | null;
   currentUserId: string | null;
+  currentUserOffRoute?: boolean;
 }
 
-function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
+function NaverMapView({ center, userLocations, route, currentUserId, currentUserOffRoute = false }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<naver.maps.Map | null>(null);
   const markersRef = useRef<Map<string, naver.maps.Marker>>(new Map());
@@ -121,12 +122,31 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
     userLocations.forEach((loc) => {
       const position = new naver.maps.LatLng(loc.lat, loc.lon);
       const existingMarker = markersRef.current.get(loc.userId);
+      const isCurrentUser = loc.userId === currentUserId;
+      const isOffRoute = isCurrentUser && currentUserOffRoute;
 
       if (existingMarker) {
         existingMarker.setPosition(position);
+        // 마커 아이콘 업데이트 (경로 이탈 상태 변경 반영)
+        existingMarker.setIcon({
+          content: `
+            <div style="
+              background: ${isOffRoute ? '#EF4444' : (isCurrentUser ? '#4F46E5' : '#10B981')};
+              color: white;
+              padding: 8px 12px;
+              border-radius: 20px;
+              font-size: 12px;
+              font-weight: bold;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+              white-space: nowrap;
+              ${isOffRoute ? 'animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''}
+            ">
+              ${isOffRoute ? '⚠️ ' : (isCurrentUser ? '🙋 ' : '')}${loc.nickname}${isOffRoute ? ' 경로 이탈' : ''}
+            </div>
+          `,
+          anchor: new naver.maps.Point(0, 0),
+        });
       } else {
-        const isCurrentUser = loc.userId === currentUserId;
-
         const marker = new naver.maps.Marker({
           position,
           map: mapInstanceRef.current!,
@@ -134,7 +154,7 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
           icon: {
             content: `
               <div style="
-                background: ${isCurrentUser ? '#4F46E5' : '#10B981'};
+                background: ${isOffRoute ? '#EF4444' : (isCurrentUser ? '#4F46E5' : '#10B981')};
                 color: white;
                 padding: 8px 12px;
                 border-radius: 20px;
@@ -142,8 +162,9 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
                 font-weight: bold;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.3);
                 white-space: nowrap;
+                ${isOffRoute ? 'animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''}
               ">
-                ${isCurrentUser ? '🙋 ' : ''}${loc.nickname}
+                ${isOffRoute ? '⚠️ ' : (isCurrentUser ? '🙋 ' : '')}${loc.nickname}${isOffRoute ? ' 경로 이탈' : ''}
               </div>
             `,
             anchor: new naver.maps.Point(0, 0),
@@ -153,7 +174,7 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
         markersRef.current.set(loc.userId, marker);
       }
     });
-  }, [userLocations, currentUserId]);
+  }, [userLocations, currentUserId, currentUserOffRoute]);
 
   // 루트 표시
   useEffect(() => {

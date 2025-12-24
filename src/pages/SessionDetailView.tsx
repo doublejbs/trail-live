@@ -5,6 +5,7 @@ import NaverMapView from '@/components/NaverMapView';
 import useGeolocation from '@/hooks/useGeolocation';
 import useRealtimeLocations from '@/hooks/useRealtimeLocations';
 import SessionService from '@/lib/sessionService';
+import { isOffRoute } from '@/utils/routeDistance';
 import type { RouteData } from '@/types/map';
 
 interface SessionInfo {
@@ -25,6 +26,7 @@ function SessionDetailView() {
   const [loading, setLoading] = useState(true);
   const [leaving, setLeaving] = useState(false);
   const [isPageVisible, setIsPageVisible] = useState(true);
+  const [offRoute, setOffRoute] = useState(false);
   const userId = user?.id || null;
 
   const { location: myLocation, error: geoError, loading: geoLoading } = useGeolocation();
@@ -115,6 +117,30 @@ function SessionDetailView() {
 
     loadSessionRoute();
   }, [sessionId]);
+
+  // 경로 이탈 감지 (GPX 경로가 있을 때만)
+  useEffect(() => {
+    if (!myLocation || !routeData?.features?.[0]?.geometry?.coordinates) {
+      setOffRoute(false);
+      return;
+    }
+
+    const coordinates = routeData.features[0].geometry.coordinates as [number, number][];
+    
+    if (!coordinates || coordinates.length < 2) {
+      setOffRoute(false);
+      return;
+    }
+
+    const isOff = isOffRoute(
+      myLocation.lat,
+      myLocation.lon,
+      coordinates,
+      50 // 50m 이상 벗어나면 이탈로 간주
+    );
+
+    setOffRoute(isOff);
+  }, [myLocation, routeData]);
 
   const handleCopyInviteCode = () => {
     if (!sessionInfo) return;
@@ -237,6 +263,12 @@ function SessionDetailView() {
               🐢 백그라운드에서 위치 공유가 느리게 진행 중입니다 (10초마다)
             </div>
           )}
+          
+          {offRoute && routeData && (
+            <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded font-semibold">
+              📍 경로에서 벗어났습니다
+            </div>
+          )}
         </div>
       </div>
 
@@ -247,6 +279,7 @@ function SessionDetailView() {
           userLocations={locations}
           route={routeData}
           currentUserId={userId}
+          currentUserOffRoute={offRoute}
         />
       </div>
 
