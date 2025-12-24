@@ -48,7 +48,7 @@ const useLocationTracking = ({
     
     updateLocation(myLocation.lat, myLocation.lon, offRoute);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offRoute, myLocation, sessionId, userId, updateLocation]);
+  }, [offRoute, sessionId, userId]);
 }
 
 export default useLocationTracking;
