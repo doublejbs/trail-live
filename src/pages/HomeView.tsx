@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import NaverMapView from '@/components/NaverMapView';
@@ -22,7 +22,13 @@ function HomeView() {
   const [routeData, setRouteData] = useState<RouteData | null>(null);
   const [isPageVisible, setIsPageVisible] = useState(true);
   const [offRoute, setOffRoute] = useState(false);
+  const offRouteRef = useRef(offRoute);
   const userId = user?.id || null;
+
+  // offRoute ref 업데이트
+  useEffect(() => {
+    offRouteRef.current = offRoute;
+  }, [offRoute]);
 
   // 초대 링크를 통한 참가 처리
   useEffect(() => {
@@ -56,21 +62,23 @@ function HomeView() {
     if (!myLocation || !sessionId || !userId) return;
 
     // 초기 위치 즉시 업데이트
-    updateLocation(myLocation.lat, myLocation.lon, offRoute);
+    updateLocation(myLocation.lat, myLocation.lon, offRouteRef.current);
 
     // 페이지 상태에 따라 다른 주기로 위치 업데이트
     const interval = isPageVisible ? 3000 : 10000;
     
     const intervalId = setInterval(() => {
       if (myLocation) {
-        updateLocation(myLocation.lat, myLocation.lon, offRoute);
+        // ref를 통해 최신 offRoute 값 사용
+        updateLocation(myLocation.lat, myLocation.lon, offRouteRef.current);
       }
     }, interval);
 
     return () => {
       clearInterval(intervalId);
     };
-  }, [myLocation, sessionId, userId, isPageVisible, offRoute, updateLocation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myLocation, sessionId, userId, isPageVisible]);
 
   // 세션 경로 불러오기
   useEffect(() => {
