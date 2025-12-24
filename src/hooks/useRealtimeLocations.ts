@@ -10,7 +10,7 @@ interface UseRealtimeLocationsParams {
 
 interface UseRealtimeLocationsReturn {
   locations: UserLocation[];
-  updateLocation: (lat: number, lon: number) => Promise<void>;
+  updateLocation: (lat: number, lon: number, offRoute: boolean) => Promise<void>;
 }
 
 function useRealtimeLocations({
@@ -35,6 +35,7 @@ function useRealtimeLocations({
           lat,
           lon,
           updated_at,
+          off_route,
           users:user_id (nickname)
         `
         )
@@ -42,13 +43,20 @@ function useRealtimeLocations({
 
       if (initialLocations) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const formattedLocations: UserLocation[] = initialLocations.map((loc: any) => ({
-          userId: loc.user_id,
-          nickname: loc.users?.nickname || '알 수 없음',
-          lat: loc.lat,
-          lon: loc.lon,
-          updatedAt: loc.updated_at,
-        }));
+        const formattedLocations: UserLocation[] = initialLocations.map((loc: any) => {
+          const offRoute = Boolean(loc.off_route);
+          if (offRoute) {
+            console.log(`[useRealtimeLocations] 초기 로드 - 경로 이탈: ${loc.users?.nickname || loc.user_id}, off_route: ${loc.off_route}`);
+          }
+          return {
+            userId: loc.user_id,
+            nickname: loc.users?.nickname || '알 수 없음',
+            lat: loc.lat,
+            lon: loc.lon,
+            updatedAt: loc.updated_at,
+            offRoute,
+          };
+        });
         setLocations(formattedLocations);
       }
 
@@ -70,6 +78,7 @@ function useRealtimeLocations({
                 lat: number;
                 lon: number;
                 updated_at: string;
+                off_route: boolean;
               };
 
               // 사용자 닉네임 조회
@@ -79,6 +88,11 @@ function useRealtimeLocations({
                 .eq('id', newLocation.user_id)
                 .single();
 
+              const offRoute = Boolean(newLocation.off_route);
+              if (offRoute) {
+                console.log(`[useRealtimeLocations] Realtime 업데이트 - 경로 이탈: ${(userData as any)?.nickname || newLocation.user_id}, off_route: ${newLocation.off_route}`);
+              }
+              
               const userLocation: UserLocation = {
                 userId: newLocation.user_id,
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -86,6 +100,7 @@ function useRealtimeLocations({
                 lat: newLocation.lat,
                 lon: newLocation.lon,
                 updatedAt: newLocation.updated_at,
+                offRoute,
               };
 
               setLocations((prev) => {
@@ -116,16 +131,19 @@ function useRealtimeLocations({
     };
   }, [sessionId]);
 
-  const updateLocation = async (lat: number, lon: number): Promise<void> => {
+  const updateLocation = async (lat: number, lon: number, offRoute: boolean = false): Promise<void> => {
     if (!sessionId || !userId) return;
 
+    console.log(`[updateLocation] DB 업데이트 시도: userId=${userId}, lat=${lat}, lon=${lon}, offRoute=${offRoute}`);
+
     // @ts-expect-error - Supabase types don't match the actual API
-    const { error } = await supabase.from('locations').upsert(
+    const { error, data } = await supabase.from('locations').upsert(
       {
         session_id: sessionId,
         user_id: userId,
         lat,
         lon,
+        off_route: offRoute,
         updated_at: new Date().toISOString(),
       },
       {
@@ -134,7 +152,9 @@ function useRealtimeLocations({
     );
 
     if (error) {
-      console.error('위치 업데이트 실패:', error);
+      console.error('[updateLocation] 위치 업데이트 실패:', error);
+    } else {
+      console.log(`[updateLocation] DB 업데이트 성공: off_route=${offRoute}`, data);
     }
   };
 

@@ -82,21 +82,21 @@ function SessionDetailView() {
     if (!myLocation || !sessionId || !userId) return;
 
     // 초기 위치 즉시 업데이트
-    updateLocation(myLocation.lat, myLocation.lon);
+    updateLocation(myLocation.lat, myLocation.lon, offRoute);
 
     // 페이지 상태에 따라 다른 주기로 위치 업데이트
     const interval = isPageVisible ? 3000 : 10000;
     
     const intervalId = setInterval(() => {
       if (myLocation) {
-        updateLocation(myLocation.lat, myLocation.lon);
+        updateLocation(myLocation.lat, myLocation.lon, offRoute);
       }
     }, interval);
 
     return () => {
       clearInterval(intervalId);
     };
-  }, [myLocation, sessionId, userId, isPageVisible, updateLocation]);
+  }, [myLocation, sessionId, userId, isPageVisible, offRoute, updateLocation]);
 
   // 세션 경로 불러오기
   useEffect(() => {
@@ -141,6 +141,15 @@ function SessionDetailView() {
 
     setOffRoute(isOff);
   }, [myLocation, routeData]);
+
+  // offRoute가 변경될 때 DB에 즉시 반영
+  useEffect(() => {
+    if (!myLocation || !sessionId || !userId) return;
+    
+    // offRoute 상태가 변경되면 현재 위치와 함께 DB에 업데이트
+    updateLocation(myLocation.lat, myLocation.lon, offRoute);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offRoute]);
 
   const handleCopyInviteCode = () => {
     if (!sessionInfo) return;
@@ -279,7 +288,6 @@ function SessionDetailView() {
           userLocations={locations}
           route={routeData}
           currentUserId={userId}
-          currentUserOffRoute={offRoute}
         />
       </div>
 

@@ -7,6 +7,7 @@ export interface UserLocation extends Location {
   userId: string;
   nickname: string;
   updatedAt: string;
+  offRoute: boolean;
 }
 
 export interface RouteData {

@@ -6,10 +6,9 @@ interface Props {
   userLocations: UserLocation[];
   route: RouteData | null;
   currentUserId: string | null;
-  currentUserOffRoute?: boolean;
 }
 
-function NaverMapView({ center, userLocations, route, currentUserId, currentUserOffRoute = false }: Props) {
+function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<naver.maps.Map | null>(null);
   const markersRef = useRef<Map<string, naver.maps.Marker>>(new Map());
@@ -120,61 +119,60 @@ function NaverMapView({ center, userLocations, route, currentUserId, currentUser
 
     // 마커 추가 또는 업데이트
     userLocations.forEach((loc) => {
+      console.log(loc);
       const position = new naver.maps.LatLng(loc.lat, loc.lon);
       const existingMarker = markersRef.current.get(loc.userId);
       const isCurrentUser = loc.userId === currentUserId;
-      const isOffRoute = isCurrentUser && currentUserOffRoute;
+      const isOffRoute = Boolean(loc.offRoute);
+      
+      // 디버깅: offRoute 값 확인
+      if (isOffRoute) {
+        console.log(`[NaverMapView] 경로 이탈 감지: ${loc.nickname} (userId: ${loc.userId}), offRoute: ${loc.offRoute}`);
+      }
+
+      const backgroundColor = isOffRoute ? '#EF4444' : (isCurrentUser ? '#4F46E5' : '#10B981');
+      const iconText = isOffRoute ? `⚠️ ${loc.nickname} 경로 이탈` : (isCurrentUser ? `🙋 ${loc.nickname}` : loc.nickname);
+      const animationStyle = isOffRoute ? 'animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : '';
+      
+      const markerContent = `
+        <div style="
+          background: ${backgroundColor};
+          color: white;
+          padding: 8px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: bold;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          white-space: nowrap;
+          ${animationStyle}
+        ">
+          ${iconText}
+        </div>
+      `;
 
       if (existingMarker) {
         existingMarker.setPosition(position);
         // 마커 아이콘 업데이트 (경로 이탈 상태 변경 반영)
-        existingMarker.setIcon({
-          content: `
-            <div style="
-              background: ${isOffRoute ? '#EF4444' : (isCurrentUser ? '#4F46E5' : '#10B981')};
-              color: white;
-              padding: 8px 12px;
-              border-radius: 20px;
-              font-size: 12px;
-              font-weight: bold;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-              white-space: nowrap;
-              ${isOffRoute ? 'animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''}
-            ">
-              ${isOffRoute ? '⚠️ ' : (isCurrentUser ? '🙋 ' : '')}${loc.nickname}${isOffRoute ? ' 경로 이탈' : ''}
-            </div>
-          `,
-          anchor: new naver.maps.Point(0, 0),
-        });
-      } else {
-        const marker = new naver.maps.Marker({
-          position,
-          map: mapInstanceRef.current!,
-          title: loc.nickname,
-          icon: {
-            content: `
-              <div style="
-                background: ${isOffRoute ? '#EF4444' : (isCurrentUser ? '#4F46E5' : '#10B981')};
-                color: white;
-                padding: 8px 12px;
-                border-radius: 20px;
-                font-size: 12px;
-                font-weight: bold;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                white-space: nowrap;
-                ${isOffRoute ? 'animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;' : ''}
-              ">
-                ${isOffRoute ? '⚠️ ' : (isCurrentUser ? '🙋 ' : '')}${loc.nickname}${isOffRoute ? ' 경로 이탈' : ''}
-              </div>
-            `,
-            anchor: new naver.maps.Point(0, 0),
-          },
-        });
-
-        markersRef.current.set(loc.userId, marker);
+        // 기존 마커를 제거하고 새로 생성하는 것이 더 확실함
+        existingMarker.setMap(null);
+        markersRef.current.delete(loc.userId);
       }
+      
+      // 마커 생성 (기존 마커가 없거나 제거된 경우)
+      const marker = new naver.maps.Marker({
+        position,
+        map: mapInstanceRef.current!,
+        title: loc.nickname,
+        icon: {
+          content: markerContent,
+          anchor: new naver.maps.Point(0, 0),
+        },
+        zIndex: isOffRoute ? 1000 : 100, // 경로 이탈 마커를 위에 표시
+      });
+
+      markersRef.current.set(loc.userId, marker);
     });
-  }, [userLocations, currentUserId, currentUserOffRoute]);
+  }, [userLocations, currentUserId]);
 
   // 루트 표시
   useEffect(() => {
