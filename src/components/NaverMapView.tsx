@@ -8,23 +8,12 @@ interface Props {
   currentUserId: string | null;
 }
 
-function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<naver.maps.Map | null>(null);
-  const markersRef = useRef<Map<string, naver.maps.Marker>>(new Map());
-  const currentLocationMarkerRef = useRef<naver.maps.Marker | null>(null);
-  const currentLocationCircleRef = useRef<naver.maps.Circle | null>(null);
-  const routePolylinesRef = useRef<naver.maps.Polyline[]>([]);
+interface MapInitializerProps {
+  mapRef: React.RefObject<HTMLDivElement>;
+  mapInstanceRef: React.MutableRefObject<naver.maps.Map | null>;
+}
 
-  const handleMoveToCurrentLocation = () => {
-    if (center && mapInstanceRef.current) {
-      const latLng = new naver.maps.LatLng(center.lat, center.lon);
-      mapInstanceRef.current.setCenter(latLng);
-      mapInstanceRef.current.setZoom(15);
-    }
-  };
-
-  // 지도 초기화
+function MapInitializer({ mapRef, mapInstanceRef }: MapInitializerProps) {
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
@@ -39,9 +28,24 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
       },
       mapTypeControl: true,
     });
-  }, []);
+  }, [mapRef, mapInstanceRef]);
 
-  // 현재 위치 마커 업데이트
+  return null;
+}
+
+interface CurrentLocationMarkerProps {
+  center: { lat: number; lon: number } | null;
+  mapInstanceRef: React.MutableRefObject<naver.maps.Map | null>;
+  currentLocationMarkerRef: React.MutableRefObject<naver.maps.Marker | null>;
+  currentLocationCircleRef: React.MutableRefObject<naver.maps.Circle | null>;
+}
+
+function CurrentLocationMarker({
+  center,
+  mapInstanceRef,
+  currentLocationMarkerRef,
+  currentLocationCircleRef,
+}: CurrentLocationMarkerProps) {
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
@@ -49,7 +53,6 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
       const latLng = new naver.maps.LatLng(center.lat, center.lon);
       const isFirstTime = !currentLocationMarkerRef.current;
 
-      // 현재 위치 마커 생성 또는 업데이트
       if (isFirstTime) {
         currentLocationMarkerRef.current = new naver.maps.Marker({
           position: latLng,
@@ -70,7 +73,6 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
           zIndex: 1000,
         });
 
-        // 정확도 원 생성
         currentLocationCircleRef.current = new naver.maps.Circle({
           map: mapInstanceRef.current,
           center: latLng,
@@ -82,15 +84,12 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
           strokeWeight: 1,
         });
 
-        // 최초 1회만 지도 중심 이동
         mapInstanceRef.current.setCenter(latLng);
       } else {
-        // 위치 업데이트
         currentLocationMarkerRef.current?.setPosition(latLng);
         currentLocationCircleRef.current?.setCenter(latLng);
       }
     } else {
-      // center가 null이면 마커 제거
       if (currentLocationMarkerRef.current) {
         currentLocationMarkerRef.current.setMap(null);
         currentLocationMarkerRef.current = null;
@@ -100,16 +99,29 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
         currentLocationCircleRef.current = null;
       }
     }
+  }, [center, mapInstanceRef, currentLocationMarkerRef, currentLocationCircleRef]);
 
-  }, [center]);
+  return null;
+}
 
-  // 사용자 위치 마커 업데이트
+interface UserLocationMarkersProps {
+  userLocations: UserLocation[];
+  currentUserId: string | null;
+  mapInstanceRef: React.MutableRefObject<naver.maps.Map | null>;
+  markersRef: React.MutableRefObject<Map<string, naver.maps.Marker>>;
+}
+
+function UserLocationMarkers({
+  userLocations,
+  currentUserId,
+  mapInstanceRef,
+  markersRef,
+}: UserLocationMarkersProps) {
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
     const currentMarkerIds = new Set(userLocations.map((loc) => loc.userId));
 
-    // 삭제된 마커 제거
     markersRef.current.forEach((marker, userId) => {
       if (!currentMarkerIds.has(userId)) {
         marker.setMap(null);
@@ -117,15 +129,13 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
       }
     });
 
-    // 마커 추가 또는 업데이트
     userLocations.forEach((loc) => {
-      console.log(loc);
+      console.log('loc', loc);
       const position = new naver.maps.LatLng(loc.lat, loc.lon);
       const existingMarker = markersRef.current.get(loc.userId);
       const isCurrentUser = loc.userId === currentUserId;
       const isOffRoute = Boolean(loc.offRoute);
       
-      // 디버깅: offRoute 값 확인
       if (isOffRoute) {
         console.log(`[NaverMapView] 경로 이탈 감지: ${loc.nickname} (userId: ${loc.userId}), offRoute: ${loc.offRoute}`);
       }
@@ -152,13 +162,10 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
 
       if (existingMarker) {
         existingMarker.setPosition(position);
-        // 마커 아이콘 업데이트 (경로 이탈 상태 변경 반영)
-        // 기존 마커를 제거하고 새로 생성하는 것이 더 확실함
         existingMarker.setMap(null);
         markersRef.current.delete(loc.userId);
       }
       
-      // 마커 생성 (기존 마커가 없거나 제거된 경우)
       const marker = new naver.maps.Marker({
         position,
         map: mapInstanceRef.current!,
@@ -167,18 +174,30 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
           content: markerContent,
           anchor: new naver.maps.Point(0, 0),
         },
-        zIndex: isOffRoute ? 1000 : 100, // 경로 이탈 마커를 위에 표시
+        zIndex: isOffRoute ? 1000 : 100,
       });
 
       markersRef.current.set(loc.userId, marker);
     });
-  }, [userLocations, currentUserId]);
+  }, [userLocations, currentUserId, mapInstanceRef, markersRef]);
 
-  // 루트 표시
+  return null;
+}
+
+interface RoutePolylineProps {
+  route: RouteData | null;
+  mapInstanceRef: React.MutableRefObject<naver.maps.Map | null>;
+  routePolylinesRef: React.MutableRefObject<naver.maps.Polyline[]>;
+}
+
+function RoutePolyline({
+  route,
+  mapInstanceRef,
+  routePolylinesRef,
+}: RoutePolylineProps) {
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
-    // 기존 폴리라인 제거
     routePolylinesRef.current.forEach((polyline) => polyline.setMap(null));
     routePolylinesRef.current = [];
 
@@ -207,7 +226,6 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
         }
       });
 
-      // 경로가 있으면 전체 경로가 보이도록 지도 범위 조정
       if (allPoints.length > 0) {
         const bounds = new naver.maps.LatLngBounds(
           allPoints[0],
@@ -226,11 +244,52 @@ function NaverMapView({ center, userLocations, route, currentUserId }: Props) {
         });
       }
     }
-  }, [route]);
+  }, [route, mapInstanceRef, routePolylinesRef]);
+
+  return null;
+}
+
+const NaverMapView = ({ center, userLocations, route, currentUserId }: Props) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<naver.maps.Map | null>(null);
+  const markersRef = useRef<Map<string, naver.maps.Marker>>(new Map());
+  const currentLocationMarkerRef = useRef<naver.maps.Marker | null>(null);
+  const currentLocationCircleRef = useRef<naver.maps.Circle | null>(null);
+  const routePolylinesRef = useRef<naver.maps.Polyline[]>([]);
+
+  const handleMoveToCurrentLocation = () => {
+    if (center && mapInstanceRef.current) {
+      const latLng = new naver.maps.LatLng(center.lat, center.lon);
+      mapInstanceRef.current.setCenter(latLng);
+      mapInstanceRef.current.setZoom(15);
+    }
+  };
 
   return (
     <div className="relative w-full h-full" style={{ minHeight: '400px' }}>
       <div ref={mapRef} className="w-full h-full" />
+      
+      <MapInitializer mapRef={mapRef} mapInstanceRef={mapInstanceRef} />
+      
+      <CurrentLocationMarker
+        center={center}
+        mapInstanceRef={mapInstanceRef}
+        currentLocationMarkerRef={currentLocationMarkerRef}
+        currentLocationCircleRef={currentLocationCircleRef}
+      />
+      
+      <UserLocationMarkers
+        userLocations={userLocations}
+        currentUserId={currentUserId}
+        mapInstanceRef={mapInstanceRef}
+        markersRef={markersRef}
+      />
+      
+      <RoutePolyline
+        route={route}
+        mapInstanceRef={mapInstanceRef}
+        routePolylinesRef={routePolylinesRef}
+      />
       
       {center && (
         <button

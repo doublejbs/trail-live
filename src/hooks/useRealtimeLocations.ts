@@ -13,10 +13,10 @@ interface UseRealtimeLocationsReturn {
   updateLocation: (lat: number, lon: number, offRoute: boolean) => Promise<void>;
 }
 
-function useRealtimeLocations({
+const useRealtimeLocations = ({
   sessionId,
   userId,
-}: UseRealtimeLocationsParams): UseRealtimeLocationsReturn {
+}: UseRealtimeLocationsParams): UseRealtimeLocationsReturn => {
   const [locations, setLocations] = useState<UserLocation[]>([]);
 
   useEffect(() => {
