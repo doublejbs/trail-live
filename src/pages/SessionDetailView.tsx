@@ -75,19 +75,21 @@ function SessionDetailView() {
     };
   }, []);
 
-  // 위치 업데이트 (3초마다, 페이지가 보일 때만)
+  // 위치 업데이트 (포그라운드: 3초, 백그라운드: 10초)
   useEffect(() => {
-    if (!myLocation || !sessionId || !userId || !isPageVisible) return;
+    if (!myLocation || !sessionId || !userId) return;
 
     // 초기 위치 즉시 업데이트
     updateLocation(myLocation.lat, myLocation.lon);
 
-    // 3초마다 주기적으로 위치 업데이트
+    // 페이지 상태에 따라 다른 주기로 위치 업데이트
+    const interval = isPageVisible ? 3000 : 10000;
+    
     const intervalId = setInterval(() => {
       if (myLocation) {
         updateLocation(myLocation.lat, myLocation.lon);
       }
-    }, 3000);
+    }, interval);
 
     return () => {
       clearInterval(intervalId);
@@ -232,7 +234,7 @@ function SessionDetailView() {
           
           {myLocation && !isPageVisible && (
             <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
-              ⏸️ 백그라운드에서 위치 공유가 일시 중지되었습니다
+              🐢 백그라운드에서 위치 공유가 느리게 진행 중입니다 (10초마다)
             </div>
           )}
         </div>
