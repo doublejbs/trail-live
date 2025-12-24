@@ -53,12 +53,7 @@ function JoinSessionView() {
   }, [loadSessions]);
 
   const handleSessionClick = (session: SessionData) => {
-    navigate('/', { 
-      state: { 
-        joinedSessionId: session.id, 
-        sessionName: session.name 
-      } 
-    });
+    navigate(`/session/${session.id}`);
   };
 
   const handleCopyInviteCode = (e: React.MouseEvent, inviteCode: string) => {
@@ -76,12 +71,7 @@ function JoinSessionView() {
       const sessionService = new SessionService();
       await sessionService.joinSession(session.invite_code, userId);
       
-      navigate('/', { 
-        state: { 
-          joinedSessionId: session.id, 
-          sessionName: session.name 
-        } 
-      });
+      navigate(`/session/${session.id}`);
     } catch (error) {
       console.error('모임 참가 실패:', error);
       alert(error instanceof Error ? error.message : '모임 참가에 실패했습니다.');

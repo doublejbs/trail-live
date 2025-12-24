@@ -1,12 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import AuthProvider from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import LoginView from './pages/LoginView';
-import SignupView from './pages/SignupView';
-import HomeView from './pages/HomeView';
-import CreateSessionView from './pages/CreateSessionView';
-import JoinSessionView from './pages/JoinSessionView';
-import InviteView from './pages/InviteView';
+import AuthProvider from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import LoginView from '@/pages/LoginView';
+import SignupView from '@/pages/SignupView';
+import HomeView from '@/pages/HomeView';
+import CreateSessionView from '@/pages/CreateSessionView';
+import JoinSessionView from '@/pages/JoinSessionView';
+import SessionDetailView from '@/pages/SessionDetailView';
+import InviteView from '@/pages/InviteView';
 
 function App() {
   return (
@@ -36,6 +37,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <JoinSessionView />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/session/:sessionId"
+            element={
+              <ProtectedRoute>
+                <SessionDetailView />
               </ProtectedRoute>
             }
           />

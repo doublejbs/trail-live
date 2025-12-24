@@ -298,6 +298,26 @@ class SessionService {
     }
   }
 
+  public async getSessionById(sessionId: string): Promise<any | null> {
+    try {
+      const { data: session, error } = await supabase
+        .from('sessions')
+        .select('id, name, invite_code, created_at, is_active, host_id')
+        .eq('id', sessionId)
+        .single();
+
+      if (error || !session) {
+        console.error('세션 조회 실패:', error);
+        return null;
+      }
+
+      return session;
+    } catch (error) {
+      console.error('세션 조회 중 오류:', error);
+      return null;
+    }
+  }
+
   public async getSessionRoute(sessionId: string): Promise<any | null> {
     try {
       const { data: routes, error } = await supabase
@@ -387,6 +407,61 @@ class SessionService {
     } catch (error) {
       console.error('Error in getPublicSessions:', error);
       return [];
+    }
+  }
+
+  public async leaveSession(sessionId: string, userId: string): Promise<void> {
+    try {
+      // 1. 세션 정보 조회
+      const { data: session, error: sessionError } = await supabase
+        .from('sessions')
+        .select('id, host_id, is_active')
+        .eq('id', sessionId)
+        .single();
+
+      if (sessionError || !session) {
+        throw new Error('세션을 찾을 수 없습니다.');
+      }
+
+      // 2. 호스트인 경우 세션 종료
+      if ((session as any).host_id === userId) {
+        const { error: updateError } = await (supabase
+          .from('sessions') as any)
+          .update({
+            is_active: false,
+          })
+          .eq('id', sessionId);
+
+        if (updateError) {
+          throw new Error(`세션 종료 실패: ${updateError.message}`);
+        }
+      }
+
+      // 3. session_members에서 제거
+      const { error: deleteError } = await supabase
+        .from('session_members')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('user_id', userId);
+
+      if (deleteError) {
+        throw new Error(`모임 나가기 실패: ${deleteError.message}`);
+      }
+
+      // 4. user_locations에서 위치 정보 삭제
+      const { error: locationError } = await supabase
+        .from('user_locations')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('user_id', userId);
+
+      if (locationError) {
+        console.error('위치 정보 삭제 실패:', locationError);
+        // 위치 정보 삭제는 치명적이지 않으므로 계속 진행
+      }
+    } catch (error) {
+      console.error('모임 나가기 중 오류:', error);
+      throw error;
     }
   }
 }

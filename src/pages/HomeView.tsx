@@ -19,6 +19,7 @@ function HomeView() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentSessionName, setCurrentSessionName] = useState<string | null>(null);
   const [routeData, setRouteData] = useState<RouteData | null>(null);
+  const [isPageVisible, setIsPageVisible] = useState(true);
   const userId = user?.id || null;
 
   // 초대 링크를 통한 참가 처리
@@ -35,11 +36,37 @@ function HomeView() {
   const { location: myLocation, error: geoError, loading: geoLoading } = useGeolocation();
   const { locations, updateLocation } = useRealtimeLocations({ sessionId, userId });
 
+  // 페이지 가시성 감지
   useEffect(() => {
-    if (myLocation && sessionId && userId) {
-      updateLocation(myLocation.lat, myLocation.lon);
-    }
-  }, [myLocation, sessionId, userId, updateLocation]);
+    const handleVisibilityChange = () => {
+      setIsPageVisible(!document.hidden);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // 위치 업데이트 (3초마다, 페이지가 보일 때만)
+  useEffect(() => {
+    if (!myLocation || !sessionId || !userId || !isPageVisible) return;
+
+    // 초기 위치 즉시 업데이트
+    updateLocation(myLocation.lat, myLocation.lon);
+
+    // 3초마다 주기적으로 위치 업데이트
+    const intervalId = setInterval(() => {
+      if (myLocation) {
+        updateLocation(myLocation.lat, myLocation.lon);
+      }
+    }, 3000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [myLocation, sessionId, userId, isPageVisible, updateLocation]);
 
   // 세션 경로 불러오기
   useEffect(() => {
@@ -85,12 +112,37 @@ function HomeView() {
 
       {/* 상태 표시 */}
       <div className="bg-white p-3 border-b border-black">
-        <div className="space-y-1">
-          {geoLoading && <div className="text-sm text-gray-700">📍 위치 정보를 가져오는 중...</div>}
-          {geoError && <div className="text-sm text-red-600">⚠️ {geoError}</div>}
-          {myLocation && (
-            <div className="text-sm text-gray-900">
-              ✅ 내 위치: {myLocation.lat.toFixed(6)}, {myLocation.lon.toFixed(6)}
+        <div className="space-y-2">
+          {sessionId && (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                👥 참가자: <span className="font-bold text-black">{locations.length}명</span>
+              </div>
+              {myLocation && isPageVisible && (
+                <div className="flex items-center gap-1 text-xs">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-green-600 font-semibold">위치 공유 중</span>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {geoLoading && (
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <div className="animate-spin h-3 w-3 border-2 border-gray-700 border-t-transparent rounded-full"></div>
+              <span>위치 정보를 가져오는 중...</span>
+            </div>
+          )}
+          
+          {geoError && (
+            <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+              ⚠️ {geoError}
+            </div>
+          )}
+          
+          {myLocation && sessionId && !isPageVisible && (
+            <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+              ⏸️ 백그라운드에서 위치 공유가 일시 중지되었습니다
             </div>
           )}
         </div>

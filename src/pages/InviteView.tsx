@@ -78,6 +78,7 @@ function InviteView() {
         .maybeSingle();
 
       if (!existingUser) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await supabase
           .from('users')
           .insert({
@@ -89,13 +90,8 @@ function InviteView() {
 
       await sessionService.joinSession(code, userId);
       
-      // 참가 성공 후 홈으로 이동 (세션 ID와 이름을 state로 전달)
-      navigate('/', { 
-        state: { 
-          joinedSessionId: sessionInfo.id, 
-          sessionName: sessionInfo.name 
-        } 
-      });
+      // 참가 성공 후 세션 상세 페이지로 이동
+      navigate(`/session/${sessionInfo.id}`);
     } catch (err) {
       console.error('모임 참가 실패:', err);
       setError(err instanceof Error ? err.message : '모임 참가에 실패했습니다.');
