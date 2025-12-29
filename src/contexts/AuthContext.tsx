@@ -200,7 +200,7 @@ function AuthProvider({ children }: Props) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'kakao',
       options: {
-        redirectTo: `${redirectUrl}/`,
+        redirectTo: `https://xmfyciykyunseywqeoiq.supabase.co/auth/v1/callback`,
       },
     });
 
