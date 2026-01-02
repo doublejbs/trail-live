@@ -12,12 +12,15 @@ interface Candidate {
   created_at: string;
 }
 
+type ViewMode = 'map' | 'list';
+
 function CandidatesView() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<naver.maps.Map | null>(null);
   const candidateMarkersRef = useRef<Map<string, naver.maps.Marker>>(new Map());
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('map');
 
   // 마커 아이콘 생성 함수
   const createMarkerIcon = (name: string, isSelected: boolean) => ({
@@ -74,6 +77,19 @@ function CandidatesView() {
       marker.setIcon(createMarkerIcon(candidateName, isSelected));
     });
   }, [selectedCandidate]);
+
+  // 뷰 모드 변경 시 지도 크기 재조정
+  useEffect(() => {
+    if (viewMode === 'map' && mapInstanceRef.current) {
+      // 지도가 다시 표시될 때 크기 재조정
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (window as any).naver.maps.Event.trigger(mapInstanceRef.current, 'resize');
+        }
+      }, 0);
+    }
+  }, [viewMode]);
 
   // 후보지 마커 표시
   useEffect(() => {
@@ -148,68 +164,152 @@ function CandidatesView() {
 
   return (
     <div className="w-full h-screen relative">
-      {/* 지도 영역 */}
-      <div ref={mapRef} className="w-full h-full" />
-      
-      {/* 후보지 없음 메시지 */}
-      {candidates.length === 0 && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-6 py-4 rounded-lg shadow-lg border border-gray-200">
-          <div className="text-center">
-            <div className="text-gray-500 mb-2">등록된 후보지가 없습니다</div>
-            <a
-              href="/add-candidate"
-              className="text-sm text-blue-600 hover:underline"
-            >
-              후보지 추가하기 →
-            </a>
+      {/* 뷰 전환 버튼 */}
+      <div className="absolute top-4 left-4 z-10 bg-white rounded-lg shadow-lg border border-gray-300 flex">
+        <button
+          onClick={() => setViewMode('map')}
+          className={`px-4 py-2 rounded-l-lg font-medium transition-colors ${
+            viewMode === 'map'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          🗺️ 지도
+        </button>
+        <button
+          onClick={() => setViewMode('list')}
+          className={`px-4 py-2 rounded-r-lg font-medium transition-colors ${
+            viewMode === 'list'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          📋 리스트
+        </button>
+      </div>
+
+      {/* 지도 뷰 */}
+      <div className={viewMode === 'map' ? 'block w-full h-full' : 'hidden'}>
+        <div ref={mapRef} className="w-full h-full" />
+        
+        {/* 후보지 없음 메시지 */}
+        {candidates.length === 0 && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-6 py-4 rounded-lg shadow-lg border border-gray-200">
+            <div className="text-center">
+              <div className="text-gray-500 mb-2">등록된 후보지가 없습니다</div>
+              <a
+                href="/add-candidate"
+                className="text-sm text-blue-600 hover:underline"
+              >
+                후보지 추가하기 →
+              </a>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 선택된 후보지 정보 (지도 위 오버레이) */}
-      {selectedCandidate && (
-        <div className="absolute bottom-6 left-6 right-6 bg-white rounded-lg shadow-xl border border-gray-300 p-6 max-w-md">
-          <div className="flex items-start justify-between mb-4">
-            <h2 className="text-2xl font-bold">{selectedCandidate.name}</h2>
-            <button
-              onClick={() => setSelectedCandidate(null)}
-              className="text-gray-500 hover:text-black ml-2 text-xl"
-            >
-              ✕
-            </button>
+        {/* 선택된 후보지 정보 (지도 위 오버레이) */}
+        {selectedCandidate && (
+          <div className="absolute bottom-6 left-6 right-6 bg-white rounded-lg shadow-xl border border-gray-300 p-6 max-w-md">
+            <div className="flex items-start justify-between mb-4">
+              <h2 className="text-2xl font-bold">{selectedCandidate.name}</h2>
+              <button
+                onClick={() => setSelectedCandidate(null)}
+                className="text-gray-500 hover:text-black ml-2 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {selectedCandidate.price && (
+                <div>
+                  <div className="text-sm text-gray-600 mb-1 font-medium">가격</div>
+                  <div className="text-lg font-bold text-gray-900">{selectedCandidate.price}</div>
+                </div>
+              )}
+
+              {selectedCandidate.link && (
+                <div>
+                  <div className="text-sm text-gray-600 mb-1 font-medium">링크</div>
+                  <a
+                    href={selectedCandidate.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-base text-blue-600 hover:underline break-all"
+                  >
+                    {selectedCandidate.link}
+                  </a>
+                </div>
+              )}
+
+              {selectedCandidate.memo && (
+                <div>
+                  <div className="text-sm text-gray-600 mb-1 font-medium">메모</div>
+                  <div className="text-base whitespace-pre-wrap text-gray-900 leading-relaxed">{selectedCandidate.memo}</div>
+                </div>
+              )}
+            </div>
           </div>
+        )}
+      </div>
 
-          <div className="space-y-3">
-            {selectedCandidate.price && (
-              <div>
-                <div className="text-sm text-gray-600 mb-1 font-medium">가격</div>
-                <div className="text-lg font-bold text-gray-900">{selectedCandidate.price}</div>
-              </div>
-            )}
-
-            {selectedCandidate.link && (
-              <div>
-                <div className="text-sm text-gray-600 mb-1 font-medium">링크</div>
+      {/* 리스트 뷰 */}
+      <div className={`w-full h-full bg-gray-50 overflow-y-auto ${viewMode === 'list' ? 'block' : 'hidden'}`}>
+          <div className="max-w-4xl mx-auto p-6 pt-20">
+            {candidates.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-500 mb-4 text-lg">등록된 후보지가 없습니다</div>
                 <a
-                  href={selectedCandidate.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-base text-blue-600 hover:underline break-all"
+                  href="/add-candidate"
+                  className="text-blue-600 hover:underline"
                 >
-                  {selectedCandidate.link}
+                  후보지 추가하기 →
                 </a>
               </div>
-            )}
+            ) : (
+              <div className="space-y-4">
+                {candidates.map((candidate) => (
+                  <div
+                    key={candidate.id}
+                    className="bg-white rounded-lg shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+                  >
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">{candidate.name}</h3>
 
-            {selectedCandidate.memo && (
-              <div>
-                <div className="text-sm text-gray-600 mb-1 font-medium">메모</div>
-                <div className="text-base whitespace-pre-wrap text-gray-900 leading-relaxed">{selectedCandidate.memo}</div>
+                    <div className="space-y-3">
+                      {candidate.price && (
+                        <div>
+                          <div className="text-sm text-gray-600 mb-1 font-medium">가격</div>
+                          <div className="text-lg font-bold text-gray-900">{candidate.price}</div>
+                        </div>
+                      )}
+
+                      {candidate.link && (
+                        <div>
+                          <div className="text-sm text-gray-600 mb-1 font-medium">링크</div>
+                          <a
+                            href={candidate.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-base text-blue-600 hover:underline break-all"
+                          >
+                            {candidate.link}
+                          </a>
+                        </div>
+                      )}
+
+                      {candidate.memo && (
+                        <div>
+                          <div className="text-sm text-gray-600 mb-1 font-medium">메모</div>
+                          <div className="text-base whitespace-pre-wrap text-gray-900 leading-relaxed">{candidate.memo}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
