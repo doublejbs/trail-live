@@ -19,6 +19,26 @@ function CandidatesView() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
 
+  // 마커 아이콘 생성 함수
+  const createMarkerIcon = (name: string, isSelected: boolean) => ({
+    content: `
+      <div style="
+        background: ${isSelected ? '#10B981' : '#3B82F6'};
+        color: white;
+        padding: 8px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        white-space: nowrap;
+        cursor: pointer;
+      ">
+        ${name}
+      </div>
+    `,
+    anchor: new naver.maps.Point(0, 0),
+  });
+
   // 지도 초기화
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -43,6 +63,18 @@ function CandidatesView() {
     loadCandidates();
   }, []);
 
+  // 선택된 후보지 마커 색상 업데이트
+  useEffect(() => {
+    candidateMarkersRef.current.forEach((marker) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const candidateId = (marker as any).candidateId;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const candidateName = (marker as any).candidateName;
+      const isSelected = selectedCandidate?.id === candidateId;
+      marker.setIcon(createMarkerIcon(candidateName, isSelected));
+    });
+  }, [selectedCandidate]);
+
   // 후보지 마커 표시
   useEffect(() => {
     if (!mapInstanceRef.current || candidates.length === 0) return;
@@ -65,26 +97,15 @@ function CandidatesView() {
       const marker = new naver.maps.Marker({
         position,
         map: mapInstanceRef.current!,
-        icon: {
-          content: `
-            <div style="
-              background: #3B82F6;
-              color: white;
-              padding: 8px 12px;
-              border-radius: 20px;
-              font-size: 12px;
-              font-weight: bold;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-              white-space: nowrap;
-              cursor: pointer;
-            ">
-              ${candidate.name}
-            </div>
-          `,
-          anchor: new naver.maps.Point(0, 0),
-        },
+        icon: createMarkerIcon(candidate.name, false),
         zIndex: 100,
       });
+
+      // 마커에 후보지 정보 저장
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (marker as any).candidateId = candidate.id;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (marker as any).candidateName = candidate.name;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       naver.maps.Event.addListener(marker, 'click', () => {
@@ -94,16 +115,16 @@ function CandidatesView() {
       candidateMarkersRef.current.set(candidate.id, marker);
     });
 
-    // 모든 마커가 보이도록 지도 범위 조정
+    // 모든 마커가 보이도록 지도 범위 조정 (최초 1회만)
     if (candidates.length > 0) {
       mapInstanceRef.current.fitBounds(bounds, {
         top: 50,
         right: 50,
-        bottom: selectedCandidate ? 250 : 50,
+        bottom: 50,
         left: 50,
       });
     }
-  }, [candidates, selectedCandidate]);
+  }, [candidates]);
 
   const loadCandidates = async () => {
     try {
@@ -123,82 +144,57 @@ function CandidatesView() {
 
   const handleCandidateClick = (candidate: Candidate) => {
     setSelectedCandidate(candidate);
-
-    if (mapInstanceRef.current) {
-      const position = new naver.maps.LatLng(candidate.lat, candidate.lon);
-      mapInstanceRef.current.setCenter(position);
-      mapInstanceRef.current.setZoom(16);
-    }
   };
 
   return (
-    <div className="w-full h-screen flex flex-col">
-      {/* 상단 헤더 */}
-      <div className="bg-white border-b border-black p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold mb-1">후보지 목록</h1>
-            <p className="text-sm text-gray-600">
-              총 {candidates.length}개의 후보지
-            </p>
-          </div>
-          <button
-            onClick={() => window.history.back()}
-            className="text-sm px-4 py-2 border border-black hover:bg-gray-100 transition"
-          >
-            ← 뒤로
-          </button>
-        </div>
-      </div>
-
+    <div className="w-full h-screen relative">
       {/* 지도 영역 */}
-      <div className="flex-1 relative">
-        <div ref={mapRef} className="w-full h-full" />
-        
-        {candidates.length === 0 && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-6 py-4 rounded-lg shadow-lg border border-gray-200">
-            <div className="text-center">
-              <div className="text-gray-500 mb-2">등록된 후보지가 없습니다</div>
-              <a
-                href="/add-candidate"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                후보지 추가하기 →
-              </a>
-            </div>
+      <div ref={mapRef} className="w-full h-full" />
+      
+      {/* 후보지 없음 메시지 */}
+      {candidates.length === 0 && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-6 py-4 rounded-lg shadow-lg border border-gray-200">
+          <div className="text-center">
+            <div className="text-gray-500 mb-2">등록된 후보지가 없습니다</div>
+            <a
+              href="/add-candidate"
+              className="text-sm text-blue-600 hover:underline"
+            >
+              후보지 추가하기 →
+            </a>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* 선택된 후보지 정보 */}
+      {/* 선택된 후보지 정보 (지도 위 오버레이) */}
       {selectedCandidate && (
-        <div className="bg-white border-t border-black p-4">
-          <div className="flex items-start justify-between mb-3">
-            <h2 className="text-lg font-bold">{selectedCandidate.name}</h2>
+        <div className="absolute bottom-6 left-6 right-6 bg-white rounded-lg shadow-xl border border-gray-300 p-6 max-w-md">
+          <div className="flex items-start justify-between mb-4">
+            <h2 className="text-2xl font-bold">{selectedCandidate.name}</h2>
             <button
               onClick={() => setSelectedCandidate(null)}
-              className="text-gray-500 hover:text-black"
+              className="text-gray-500 hover:text-black ml-2 text-xl"
             >
               ✕
             </button>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {selectedCandidate.price && (
               <div>
-                <div className="text-xs text-gray-500 mb-1">가격</div>
-                <div className="text-sm font-semibold">{selectedCandidate.price}</div>
+                <div className="text-sm text-gray-600 mb-1 font-medium">가격</div>
+                <div className="text-lg font-bold text-gray-900">{selectedCandidate.price}</div>
               </div>
             )}
 
             {selectedCandidate.link && (
               <div>
-                <div className="text-xs text-gray-500 mb-1">링크</div>
+                <div className="text-sm text-gray-600 mb-1 font-medium">링크</div>
                 <a
                   href={selectedCandidate.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline break-all"
+                  className="text-base text-blue-600 hover:underline break-all"
                 >
                   {selectedCandidate.link}
                 </a>
@@ -207,8 +203,8 @@ function CandidatesView() {
 
             {selectedCandidate.memo && (
               <div>
-                <div className="text-xs text-gray-500 mb-1">메모</div>
-                <div className="text-sm whitespace-pre-wrap">{selectedCandidate.memo}</div>
+                <div className="text-sm text-gray-600 mb-1 font-medium">메모</div>
+                <div className="text-base whitespace-pre-wrap text-gray-900 leading-relaxed">{selectedCandidate.memo}</div>
               </div>
             )}
           </div>
