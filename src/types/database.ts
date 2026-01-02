@@ -115,6 +115,38 @@ export type Database = {
           created_at?: string;
         };
       };
+      candidates: {
+        Row: {
+          id: string;
+          name: string;
+          lat: number;
+          lon: number;
+          link: string | null;
+          price: string | null;
+          memo: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          lat: number;
+          lon: number;
+          link?: string | null;
+          price?: string | null;
+          memo?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          lat?: number;
+          lon?: number;
+          link?: string | null;
+          price?: string | null;
+          memo?: string | null;
+          created_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;

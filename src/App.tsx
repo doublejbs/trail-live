@@ -8,6 +8,8 @@ import CreateSessionView from '@/pages/CreateSessionView';
 import JoinSessionView from '@/pages/JoinSessionView';
 import SessionDetailView from '@/pages/SessionDetailView';
 import InviteView from '@/pages/InviteView';
+import CandidatesView from '@/pages/CandidatesView';
+import AddCandidateView from '@/pages/AddCandidateView';
 
 function App() {
   return (
@@ -49,6 +51,15 @@ function App() {
             }
           />
           <Route path="/invite/:code" element={<InviteView />} />
+          <Route path="/candidates" element={<CandidatesView />} />
+          <Route
+            path="/add-candidate"
+            element={
+              <ProtectedRoute>
+                <AddCandidateView />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
